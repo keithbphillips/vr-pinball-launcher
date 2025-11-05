@@ -1,0 +1,577 @@
+using System.Collections.Generic;
+using System.IO;
+using System.Runtime.InteropServices;
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+namespace VRLauncher
+{
+    /// <summary>
+    /// Carousel wheel system for table selection in VR
+    /// Navigate with Left Shift / Right Shift keyboard keys
+    /// </summary>
+    public class TableCarousel : MonoBehaviour
+    {
+        // Windows API for direct keyboard state checking
+        [DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int vKey);
+
+        // Virtual key codes for shift keys
+        private const int VK_LSHIFT = 0xA0;
+        private const int VK_RSHIFT = 0xA1;
+
+        private bool leftShiftWasPressed = false;
+        private bool rightShiftWasPressed = false;
+        [Header("UI References")]
+        [Tooltip("Image to display the current table icon")]
+        public Image tableIcon;
+
+        [Tooltip("Text to display the current table name")]
+        public TextMeshProUGUI tableNameText;
+
+        [Tooltip("Debug text to show input status")]
+        public TextMeshProUGUI debugText;
+
+        [Tooltip("Canvas containing the UI")]
+        public Canvas menuCanvas;
+
+        [Header("Carousel Settings")]
+        [Tooltip("Distance from camera to place wheel")]
+        public float wheelDistance = 2.0f;
+
+        [Tooltip("Size of the icon display")]
+        public float iconSize = 1f;
+
+        private List<TableScanner.TableInfo> tables = new List<TableScanner.TableInfo>();
+        private int currentIndex = 0;
+        private TableScanner tableScanner;
+        private TableLauncher tableLauncher;
+
+        private string instanceId;
+        private int leftShiftPressCount = 0;
+        private int rightShiftPressCount = 0;
+        private Color flashColor = Color.white;
+
+        void Awake()
+        {
+            instanceId = System.Guid.NewGuid().ToString().Substring(0, 8);
+            Debug.Log($"TableCarousel [{instanceId}]: Awake() called on GameObject '{gameObject.name}'");
+        }
+
+        void Start()
+        {
+            Debug.Log($"TableCarousel [{instanceId}]: Start() called on GameObject '{gameObject.name}'");
+
+            // Enable running in background so we get input even when window not focused
+            Application.runInBackground = true;
+            Debug.Log("Application.runInBackground set to true");
+
+            // Get or create components
+            tableScanner = FindFirstObjectByType<TableScanner>();
+            if (tableScanner == null)
+            {
+                Debug.Log("TableCarousel: Creating new TableScanner");
+                tableScanner = gameObject.AddComponent<TableScanner>();
+            }
+            else
+            {
+                Debug.Log("TableCarousel: Found existing TableScanner");
+            }
+
+            tableLauncher = FindFirstObjectByType<TableLauncher>();
+            if (tableLauncher == null)
+            {
+                Debug.Log("TableCarousel: Creating new TableLauncher");
+                tableLauncher = gameObject.AddComponent<TableLauncher>();
+            }
+            else
+            {
+                Debug.Log("TableCarousel: Found existing TableLauncher");
+            }
+
+            // Subscribe to table exit event
+            tableLauncher.OnTableExited += OnTableExited;
+
+            // Ensure dispatcher exists
+            var dispatcher = UnityMainThreadDispatcher.Instance;
+            Debug.Log($"TableCarousel: UnityMainThreadDispatcher instance: {(dispatcher != null ? "OK" : "NULL")}");
+
+            // Position menu
+            Debug.Log("TableCarousel: Calling PositionMenu()");
+            PositionMenu();
+
+            // Load tables
+            Debug.Log($"TableCarousel [{instanceId}]: Calling LoadTables()");
+            LoadTables();
+            Debug.Log($"TableCarousel [{instanceId}]: After LoadTables(), tables.Count = {tables.Count}");
+
+            Debug.Log($"TableCarousel [{instanceId}]: Start() completed - Final tables.Count = {tables.Count}, tables reference: {tables.GetHashCode()}");
+        }
+
+        void PositionMenu()
+        {
+            if (menuCanvas != null && Camera.main != null)
+            {
+                Vector3 menuPosition = Camera.main.transform.position +
+                                      Camera.main.transform.forward * wheelDistance;
+                menuCanvas.transform.position = menuPosition;
+                menuCanvas.transform.rotation = Quaternion.LookRotation(
+                    menuPosition - Camera.main.transform.position
+                );
+            }
+        }
+
+        void LoadTables()
+        {
+            Debug.Log($"TableCarousel [{instanceId}]: LoadTables() - Before scan, tables.Count = {tables.Count}");
+
+            var scannedTables = tableScanner.ScanForTables();
+            Debug.Log($"TableCarousel [{instanceId}]: LoadTables() - ScanForTables returned {scannedTables.Count} tables");
+
+            tables = scannedTables;
+            Debug.Log($"TableCarousel [{instanceId}]: LoadTables() - After assignment, tables.Count = {tables.Count}");
+
+            if (tables != null)
+            {
+                Debug.Log($"TableCarousel [{instanceId}]: LoadTables() - tables is NOT NULL, Count = {tables.Count}");
+            }
+            else
+            {
+                Debug.LogError($"TableCarousel [{instanceId}]: LoadTables() - tables is NULL!");
+            }
+
+            if (tables.Count > 0)
+            {
+                currentIndex = 0;
+                Debug.Log($"TableCarousel [{instanceId}]: LoadTables() - About to call UpdateDisplay()");
+                UpdateDisplay();
+                Debug.Log($"TableCarousel [{instanceId}]: LoadTables() - After UpdateDisplay()");
+            }
+            else
+            {
+                if (tableNameText != null)
+                {
+                    tableNameText.text = "No tables found";
+                }
+                Debug.LogWarning($"TableCarousel [{instanceId}]: LoadTables() - No tables found!");
+            }
+
+            Debug.Log($"TableCarousel [{instanceId}]: LoadTables() - Exiting, tables.Count = {tables.Count}");
+        }
+
+        void Update()
+        {
+            // Check if tables got cleared
+            if (tables == null)
+            {
+                Debug.LogError($"TableCarousel [{instanceId}]: Update - tables is NULL!");
+                tables = new List<TableScanner.TableInfo>();
+            }
+
+            // Log once per second that update is running
+            if (Time.frameCount % 60 == 0)
+            {
+                Debug.Log($"TableCarousel [{instanceId}]: Update running - Tables: {tables.Count}, CurrentIndex: {currentIndex}, tables reference: {tables.GetHashCode()}");
+            }
+
+            // On first update, verify tables are still loaded
+            if (Time.frameCount == 1)
+            {
+                Debug.Log($"TableCarousel [{instanceId}]: FIRST UPDATE - Tables: {tables.Count}");
+                if (tables.Count == 0)
+                {
+                    Debug.LogError($"TableCarousel [{instanceId}]: Tables were cleared between Start() and first Update()! Reloading...");
+                    LoadTables();
+                }
+            }
+
+            // Handle input
+            HandleInput();
+
+            // Exit on Escape - but only when no table is running
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                // Check if a table is currently running
+                if (tableLauncher != null && tableLauncher.IsTableRunning())
+                {
+                    Debug.Log("Escape pressed but table is running - ignoring (use Backspace to exit table)");
+                }
+                else
+                {
+                    Debug.Log("Escape pressed - Quitting application");
+                    #if UNITY_EDITOR
+                    UnityEditor.EditorApplication.isPlaying = false;
+                    #else
+                    Application.Quit();
+                    #endif
+                }
+            }
+        }
+
+        void HandleInput()
+        {
+            if (tables.Count == 0)
+            {
+                if (Time.frameCount % 60 == 0)
+                {
+                    Debug.LogWarning($"TableCarousel [{instanceId}]: HandleInput - tables.Count is 0, returning early!");
+                }
+                return;
+            }
+
+            // Debug log every 2 seconds to confirm we're checking input
+            if (Time.frameCount % 120 == 0)
+            {
+                Debug.Log($"TableCarousel [{instanceId}]: HandleInput - Checking for keyboard input...");
+            }
+
+            // Debug: Check if ANY key is being pressed
+            if (Time.frameCount % 60 == 0 && Input.anyKey)
+            {
+                Debug.Log("INPUT DETECTED: Some key is being pressed");
+            }
+
+            // CHECK SHIFT KEYS USING WINDOWS API (most reliable method)
+            bool leftShiftPressed = (GetAsyncKeyState(VK_LSHIFT) & 0x8000) != 0;
+            bool rightShiftPressed = (GetAsyncKeyState(VK_RSHIFT) & 0x8000) != 0;
+
+            // Left Shift - Previous Table
+            if (leftShiftPressed)
+            {
+                if (!leftShiftWasPressed)
+                {
+                    leftShiftWasPressed = true;
+                    leftShiftPressCount++;
+
+                    // Visual feedback - flash icon red
+                    if (tableIcon != null)
+                    {
+                        tableIcon.color = Color.red;
+                    }
+
+                    PreviousTable();
+                }
+            }
+            else
+            {
+                leftShiftWasPressed = false;
+            }
+
+            // Right Shift - Next Table
+            if (rightShiftPressed)
+            {
+                if (!rightShiftWasPressed)
+                {
+                    rightShiftWasPressed = true;
+                    rightShiftPressCount++;
+
+                    // Visual feedback - flash icon blue
+                    if (tableIcon != null)
+                    {
+                        tableIcon.color = Color.blue;
+                    }
+
+                    NextTable();
+                }
+            }
+            else
+            {
+                rightShiftWasPressed = false;
+            }
+
+            // PRIMARY CONTROLS: Page Up / Page Down (less likely to be intercepted)
+            if (Input.GetKeyDown(KeyCode.PageUp))
+            {
+                Debug.Log("KEYBOARD: Page Up pressed - Previous table");
+                PreviousTable();
+            }
+            if (Input.GetKeyDown(KeyCode.PageDown))
+            {
+                Debug.Log("KEYBOARD: Page Down pressed - Next table");
+                NextTable();
+            }
+
+            // TEST: Q and E keys (should definitely work)
+            if (Input.GetKeyDown(KeyCode.Q))
+            {
+                Debug.Log("KEYBOARD: Q pressed - Previous table");
+                PreviousTable();
+            }
+            if (Input.GetKeyDown(KeyCode.E))
+            {
+                Debug.Log("KEYBOARD: E pressed - Next table");
+                NextTable();
+            }
+
+            // ALTERNATIVE: Number keys 1 and 2
+            if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1))
+            {
+                Debug.Log("KEYBOARD: 1 pressed - Previous table");
+                PreviousTable();
+            }
+            if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2))
+            {
+                Debug.Log("KEYBOARD: 2 pressed - Next table");
+                NextTable();
+            }
+
+            // ALTERNATIVE: Comma and Period
+            if (Input.GetKeyDown(KeyCode.Comma))
+            {
+                Debug.Log("KEYBOARD: Comma (,) pressed - Previous table");
+                PreviousTable();
+            }
+            if (Input.GetKeyDown(KeyCode.Period))
+            {
+                Debug.Log("KEYBOARD: Period (.) pressed - Next table");
+                NextTable();
+            }
+
+            // Also try Shift keys (may not work in built app)
+            if (Input.GetKeyDown(KeyCode.LeftShift))
+            {
+                Debug.Log("KEYBOARD: Left Shift pressed - Previous table");
+                PreviousTable();
+            }
+            if (Input.GetKeyDown(KeyCode.RightShift))
+            {
+                Debug.Log("KEYBOARD: Right Shift pressed - Next table");
+                NextTable();
+            }
+
+            // Also support arrow keys and A/D
+            if (Input.GetKeyDown(KeyCode.LeftArrow))
+            {
+                Debug.Log("KEYBOARD: Left arrow pressed - Previous table");
+                PreviousTable();
+            }
+            if (Input.GetKeyDown(KeyCode.A))
+            {
+                Debug.Log("KEYBOARD: A pressed - Previous table");
+                PreviousTable();
+            }
+            if (Input.GetKeyDown(KeyCode.RightArrow))
+            {
+                Debug.Log("KEYBOARD: Right arrow pressed - Next table");
+                NextTable();
+            }
+            if (Input.GetKeyDown(KeyCode.D))
+            {
+                Debug.Log("KEYBOARD: D pressed - Next table");
+                NextTable();
+            }
+
+            // Space or Enter to launch
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                Debug.Log("KEYBOARD: Space pressed - Launch table");
+                LaunchCurrentTable();
+            }
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+            {
+                Debug.Log("KEYBOARD: Enter pressed - Launch table");
+                LaunchCurrentTable();
+            }
+
+            // Update display - use tableNameText to show debug info
+            if (tableNameText != null && tables.Count > 0)
+            {
+                string tableName = tables[currentIndex].Name;
+                tableNameText.text = $"{tableName}\n({currentIndex + 1}/{tables.Count})\nTry Q/E keys";
+            }
+            else if (tableNameText != null)
+            {
+                tableNameText.text = "No tables found";
+            }
+
+            // Visual feedback - flash background when keys pressed
+            if (tableIcon != null)
+            {
+                // Fade flash color back to white
+                flashColor = Color.Lerp(flashColor, Color.white, Time.deltaTime * 5f);
+                tableIcon.color = flashColor;
+            }
+
+            // Test specific keys
+            if (Input.GetKey(KeyCode.Escape))
+            {
+                flashColor = Color.red;
+                if (tableNameText != null)
+                {
+                    tableNameText.text = "ESCAPE HELD!";
+                }
+            }
+            else if (Input.GetKey(KeyCode.Q))
+            {
+                flashColor = Color.blue;
+                if (tableNameText != null)
+                {
+                    tableNameText.text = "Q KEY HELD!";
+                }
+            }
+            else if (Input.anyKeyDown)
+            {
+                flashColor = Color.green;
+                if (tableNameText != null)
+                {
+                    tableNameText.text = "KEY DETECTED!";
+                }
+            }
+        }
+
+        void PreviousTable()
+        {
+            Debug.Log($"PreviousTable() CALLED! Current index: {currentIndex}");
+            currentIndex--;
+            if (currentIndex < 0)
+            {
+                currentIndex = tables.Count - 1;
+            }
+            Debug.Log($"Previous: New index {currentIndex}, Table: {tables[currentIndex].Name}");
+            UpdateDisplay();
+        }
+
+        void NextTable()
+        {
+            Debug.Log($"NextTable() CALLED! Current index: {currentIndex}");
+            currentIndex++;
+            if (currentIndex >= tables.Count)
+            {
+                currentIndex = 0;
+            }
+            Debug.Log($"Next: New index {currentIndex}, Table: {tables[currentIndex].Name}");
+            UpdateDisplay();
+        }
+
+        void UpdateDisplay()
+        {
+            if (tables.Count == 0)
+            {
+                Debug.LogWarning("UpdateDisplay: tables.Count is 0!");
+                return;
+            }
+
+            TableScanner.TableInfo currentTable = tables[currentIndex];
+            Debug.Log($"UpdateDisplay: Index={currentIndex}, Table={currentTable.Name}");
+
+            // Update text
+            if (tableNameText != null)
+            {
+                tableNameText.text = $"{currentTable.Name}\n({currentIndex + 1}/{tables.Count})";
+                Debug.Log($"UpdateDisplay: Set text to '{tableNameText.text}'");
+            }
+            else
+            {
+                Debug.LogWarning("UpdateDisplay: tableNameText is NULL!");
+            }
+
+            // Update icon
+            if (tableIcon != null)
+            {
+                // Try to load wheel image
+                if (!string.IsNullOrEmpty(currentTable.WheelImagePath) && File.Exists(currentTable.WheelImagePath))
+                {
+                    LoadWheelImage(currentTable.WheelImagePath);
+                }
+                else
+                {
+                    // Fallback to placeholder color if no image
+                    Color[] colors = { Color.red, Color.green, Color.blue, Color.yellow, Color.cyan, Color.magenta };
+                    Color newColor = colors[currentIndex % colors.Length];
+                    tableIcon.color = newColor;
+                    tableIcon.sprite = null;
+                    Debug.Log($"UpdateDisplay: No wheel image, using color {newColor}");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("UpdateDisplay: tableIcon is NULL!");
+            }
+        }
+
+        /// <summary>
+        /// Loads a wheel image from disk and displays it
+        /// </summary>
+        void LoadWheelImage(string imagePath)
+        {
+            try
+            {
+                byte[] imageData = File.ReadAllBytes(imagePath);
+                Texture2D texture = new Texture2D(2, 2);
+
+                if (texture.LoadImage(imageData))
+                {
+                    // Create sprite from texture
+                    Sprite sprite = Sprite.Create(
+                        texture,
+                        new Rect(0, 0, texture.width, texture.height),
+                        new Vector2(0.5f, 0.5f),
+                        100f
+                    );
+
+                    tableIcon.sprite = sprite;
+                    tableIcon.color = Color.white; // Reset color to white to show image properly
+                    Debug.Log($"Loaded wheel image: {Path.GetFileName(imagePath)} ({texture.width}x{texture.height})");
+                }
+                else
+                {
+                    Debug.LogWarning($"Failed to load texture from: {imagePath}");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"Error loading wheel image: {ex.Message}");
+            }
+        }
+
+        void LaunchCurrentTable()
+        {
+            if (tables.Count == 0)
+            {
+                Debug.LogWarning("No tables to launch");
+                return;
+            }
+
+            TableScanner.TableInfo table = tables[currentIndex];
+            Debug.Log($"Launching table: {table.Name}");
+
+            bool success = tableLauncher.LaunchTable(table.FullPath);
+
+            if (success)
+            {
+                // Hide menu while table is running
+                if (menuCanvas != null)
+                {
+                    menuCanvas.gameObject.SetActive(false);
+                }
+            }
+            else
+            {
+                Debug.LogError("Failed to launch table!");
+            }
+        }
+
+        void OnTableExited()
+        {
+            Debug.Log("Table exited, showing carousel");
+
+            // Show menu again
+            if (menuCanvas != null)
+            {
+                menuCanvas.gameObject.SetActive(true);
+            }
+
+            // Reposition menu in front of current camera view
+            PositionMenu();
+        }
+
+        void OnDestroy()
+        {
+            if (tableLauncher != null)
+            {
+                tableLauncher.OnTableExited -= OnTableExited;
+            }
+        }
+    }
+}

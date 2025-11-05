@@ -1,0 +1,237 @@
+# VR Pinball Launcher
+
+A Steam VR launcher for Visual Pinball tables that provides an immersive VR menu interface for browsing and launching your pinball table collection.
+
+## Features
+
+- **VR Menu Interface**: Browse your table collection in VR
+- **Automatic Table Detection**: Scans directories for .vpx files
+- **Easy Table Launching**: Select and play tables with VPinballX_GL64.exe -play
+- **Seamless Return**: Menu reappears when table exits
+- **Configurable**: JSON configuration file for easy customization
+
+## Requirements
+
+- **Unity 2020.3 or later** (2021 LTS recommended)
+- **SteamVR** installed and running
+- **Visual Pinball X** with VPinballX_GL64.exe
+- **VR Headset** compatible with SteamVR
+
+## Installation
+
+### Option 1: Build from Source
+
+1. Clone or download this repository
+2. Open the project in Unity Hub
+3. Install required packages:
+   - Go to **Window > Package Manager**
+   - Install **XR Plugin Management**
+   - Install **OpenXR Plugin** or **SteamVR Plugin**
+4. Configure XR settings:
+   - Go to **Edit > Project Settings > XR Plugin Management**
+   - Enable **OpenXR** or **SteamVR** for your platform
+5. Open the main scene: `Assets/Scenes/VRLauncher.unity`
+6. Build the project: **File > Build Settings > Build**
+
+### Option 2: Use Pre-built Release
+
+1. Download the latest release from the releases page
+2. Extract to a folder of your choice
+3. Edit `launcher-config.json` to set your paths
+4. Run `VRLauncher.exe`
+
+## Configuration
+
+Edit `launcher-config.json` in the same folder as the executable:
+
+```json
+{
+  "vpinballExecutable": "C:\\Visual Pinball\\VPinballX_GL64.exe",
+  "tablesDirectory": "C:\\Visual Pinball\\Tables",
+  "searchSubdirectories": true,
+  "menuDistance": 2.0,
+  "menuHeight": 1.5,
+  "menuScale": 0.01,
+  "showDebugConsole": true
+}
+```
+
+### Configuration Options
+
+- **vpinballExecutable**: Full path to VPinballX_GL64.exe
+- **tablesDirectory**: Directory containing your .vpx table files
+- **searchSubdirectories**: Whether to search subdirectories for tables
+- **menuDistance**: Distance (in meters) to position menu from camera
+- **menuHeight**: Height offset (in meters) for menu positioning
+- **menuScale**: Scale factor for the menu UI
+- **showDebugConsole**: Show Unity debug console (useful for troubleshooting)
+
+## Setup in Unity
+
+### Scene Setup
+
+1. Create a new scene or open `Assets/Scenes/VRLauncher.unity`
+2. Add the **VRLauncherManager** prefab to the scene
+3. Configure the Canvas UI:
+
+#### Create Menu Canvas
+
+1. **Create Canvas**:
+   - Right-click in Hierarchy > UI > Canvas
+   - Set **Render Mode** to **World Space**
+   - Set **Event Camera** to Main Camera
+
+2. **Create List Container**:
+   - Right-click Canvas > Create Empty
+   - Name it "ListContainer"
+   - Add **Vertical Layout Group** component
+   - Add **Content Size Fitter** component
+
+3. **Create Table Item Prefab**:
+   - Create UI > Button
+   - Add Text child for table name
+   - Save as prefab: `Assets/Prefabs/TableItem.prefab`
+
+4. **Create Status Text**:
+   - Create UI > Text
+   - Position at top of canvas
+   - Name it "StatusText"
+
+5. **Configure VRMenuController**:
+   - Select the VRLauncherManager object
+   - Drag Canvas to **Menu Canvas** field
+   - Drag ListContainer to **List Container** field
+   - Drag TableItem prefab to **Table Item Prefab** field
+   - Drag StatusText to **Status Text** field
+
+### Script Components
+
+The project includes these main scripts:
+
+- **VRLauncherManager.cs**: Main manager (attach to root GameObject)
+- **VRMenuController.cs**: Handles VR menu UI
+- **TableScanner.cs**: Scans for .vpx files
+- **TableLauncher.cs**: Launches Visual Pinball tables
+- **LauncherConfig.cs**: Configuration management
+- **UnityMainThreadDispatcher.cs**: Utility for thread-safe callbacks
+
+## Usage
+
+1. **Start SteamVR** if not already running
+2. **Put on your VR headset**
+3. **Launch the application**
+4. The menu will appear in front of you showing available tables
+5. **Point and click** on a table to launch it
+6. The menu will hide while the table is running
+7. When you exit the table, the menu reappears
+8. Press **Escape** to quit (desktop mode only)
+
+## Controls
+
+- **VR Controller**: Point and trigger to select tables
+- **Keyboard (Development)**:
+  - ESC - Quit application
+  - Use mouse to click in VR menu
+
+## Troubleshooting
+
+### No Tables Appear
+
+- Check that `tablesDirectory` in config points to correct folder
+- Verify .vpx files exist in that directory
+- Check Unity console for error messages
+- Ensure `searchSubdirectories` is true if tables are in subfolders
+
+### Table Won't Launch
+
+- Verify `vpinballExecutable` path is correct
+- Make sure VPinballX_GL64.exe exists at that location
+- Check that the .vpx file is not corrupted
+- Look for error messages in Unity console
+
+### VR Not Working
+
+- Ensure SteamVR is running before launching
+- Check Project Settings > XR Plugin Management
+- Verify OpenXR or SteamVR plugin is enabled
+- Test that your headset works in other SteamVR apps
+
+### Menu Not Visible
+
+- Check that Canvas is set to World Space render mode
+- Verify menuDistance and menuHeight values in config
+- Try adjusting menuScale (default 0.01)
+- Make sure camera has proper tracking
+
+### Menu Doesn't Return After Exiting Table
+
+- Check Unity console for process exit errors
+- Verify the table process actually exited
+- Try relaunching the application
+
+## Development
+
+### Project Structure
+
+```
+vr-launch/
+├── Assets/
+│   ├── Scenes/
+│   │   └── VRLauncher.unity
+│   ├── Scripts/
+│   │   ├── VRLauncherManager.cs
+│   │   ├── VRMenuController.cs
+│   │   ├── TableScanner.cs
+│   │   ├── TableLauncher.cs
+│   │   ├── LauncherConfig.cs
+│   │   └── UnityMainThreadDispatcher.cs
+│   └── Prefabs/
+│       ├── VRLauncherManager.prefab
+│       └── TableItem.prefab
+└── launcher-config.json
+```
+
+### Building
+
+1. **Configure Build Settings**:
+   - File > Build Settings
+   - Platform: Windows (64-bit)
+   - Add scene to build list
+
+2. **Player Settings**:
+   - Company Name, Product Name
+   - Icon (optional)
+   - XR Settings: Ensure VR is enabled
+
+3. **Build**:
+   - Click "Build" and choose output folder
+   - Copy `launcher-config.json` to build folder
+
+### Extending
+
+To add new features:
+
+- **Custom table sorting**: Modify `TableScanner.cs`
+- **Table metadata**: Extend `TableInfo` class
+- **Additional launch parameters**: Modify `TableLauncher.cs`
+- **Better UI**: Enhance the Canvas prefab
+- **Controller input**: Add input handling in `VRMenuController.cs`
+
+## Credits
+
+Created for the Visual Pinball VR community.
+
+## License
+
+MIT License - Feel free to use and modify for your own purposes.
+
+## Support
+
+For issues and feature requests, please use the GitHub issues page.
+
+## Tips
+
+- **Performance**: If menu lags, reduce number of visible tables or optimize prefab
+- **Positioning**: Adjust menuDistance/Height in config for comfort
+- **Large Collections**: Enable subdirectory search and organize tables in folders
+- **Quick Access**: Create shortcuts to favorite tables by organizing in subfolders

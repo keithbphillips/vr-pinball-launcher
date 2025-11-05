@@ -1,0 +1,9 @@
+{
+  "vpinballExecutable": "C:\\Visual Pinball\\VPinballX_GL64.exe",
+  "tablesDirectory": "C:\\Visual Pinball\\Tables",
+  "searchSubdirectories": true,
+  "menuDistance": 2.0,
+  "menuHeight": 1.5,
+  "menuScale": 0.01,
+  "showDebugConsole": true
+}
