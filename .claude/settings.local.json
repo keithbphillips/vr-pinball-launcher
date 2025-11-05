@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: VR Pinball Launcher\n\nA Steam VR launcher for Visual Pinball tables with carousel interface.\n\nFeatures:\n- VR carousel interface for table browsing\n- Keyboard controls (Shift/Arrow keys to browse, Enter/Space to launch)\n- Automatic table detection from configured directory\n- Wheel image support for table icons\n- Seamless table launching with VPinballX\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(gh repo create:*)",
+      "Bash(gh release create:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
