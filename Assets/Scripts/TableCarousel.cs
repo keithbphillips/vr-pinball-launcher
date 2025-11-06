@@ -62,8 +62,6 @@ namespace VRLauncher
         private Keyboard keyboard;
 
         private string instanceId;
-        private int leftShiftPressCount = 0;
-        private int rightShiftPressCount = 0;
         private Color flashColor = Color.white;
 
         void Awake()

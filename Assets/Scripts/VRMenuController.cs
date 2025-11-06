@@ -40,13 +40,13 @@ namespace VRLauncher
         void Start()
         {
             // Get or create required components
-            tableScanner = FindObjectOfType<TableScanner>();
+            tableScanner = FindFirstObjectByType<TableScanner>();
             if (tableScanner == null)
             {
                 tableScanner = gameObject.AddComponent<TableScanner>();
             }
 
-            tableLauncher = FindObjectOfType<TableLauncher>();
+            tableLauncher = FindFirstObjectByType<TableLauncher>();
             if (tableLauncher == null)
             {
                 tableLauncher = gameObject.AddComponent<TableLauncher>();

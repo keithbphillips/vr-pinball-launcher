@@ -30,6 +30,8 @@ A Steam VR launcher for Visual Pinball tables that provides an immersive VR menu
 4. Configure XR settings:
    - Go to **Edit > Project Settings > XR Plugin Management**
    - Enable **OpenXR** or **SteamVR** for your platform
+   - **IMPORTANT**: Set **SteamVR** as the default OpenXR runtime in SteamVR settings
+   - **For Meta Quest**: Also enable the **Oculus/Meta** plugin in XR Plugin Management
 5. Open the main scene: `Assets/Scenes/VRLauncher.unity`
 6. Build the project: **File > Build Settings > Build**
 
@@ -152,8 +154,13 @@ The project includes these main scripts:
 ### VR Not Working
 
 - Ensure SteamVR is running before launching
+- **Verify SteamVR is set as the default OpenXR runtime**:
+  - Open SteamVR settings
+  - Go to **OpenXR** section
+  - Click **Set SteamVR as OpenXR Runtime**
 - Check Project Settings > XR Plugin Management
 - Verify OpenXR or SteamVR plugin is enabled
+- **For Meta Quest users**: Enable both OpenXR and Oculus/Meta plugins
 - Test that your headset works in other SteamVR apps
 
 ### Menu Not Visible
