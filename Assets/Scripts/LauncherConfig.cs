@@ -21,6 +21,9 @@ namespace VRLauncher
         [Tooltip("Search subdirectories for tables")]
         public bool searchSubdirectories = true;
 
+        [Tooltip("Directory containing wheel images (supports both relative and absolute paths)")]
+        public string wheelDirectory = @"C:\Visual Pinball\Media\Wheel";
+
         [Header("Menu Settings")]
         [Tooltip("Distance from camera to place menu")]
         public float menuDistance = 2.0f;

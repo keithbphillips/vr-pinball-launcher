@@ -51,6 +51,7 @@ Edit `launcher-config.json` in the same folder as the executable:
   "vpinballExecutable": "C:\\Visual Pinball\\VPinballX_GL64.exe",
   "tablesDirectory": "C:\\Visual Pinball\\Tables",
   "searchSubdirectories": true,
+  "wheelDirectory": "C:\\Visual Pinball\\Media\\Wheel",
   "menuDistance": 2.0,
   "menuHeight": 1.5,
   "menuScale": 0.01,
@@ -63,6 +64,7 @@ Edit `launcher-config.json` in the same folder as the executable:
 - **vpinballExecutable**: Full path to VPinballX_GL64.exe
 - **tablesDirectory**: Directory containing your .vpx table files
 - **searchSubdirectories**: Whether to search subdirectories for tables
+- **wheelDirectory**: Directory containing wheel images for tables (supports both absolute paths like `C:\\Visual Pinball\\Media\\Wheel` or relative paths like `Media\\Wheel`). Images should be named to match the table files (e.g., `TableName.png` for `TableName.vpx`). Supported formats: PNG, JPG, JPEG.
 - **menuDistance**: Distance (in meters) to position menu from camera
 - **menuHeight**: Height offset (in meters) for menu positioning
 - **menuScale**: Scale factor for the menu UI
@@ -130,10 +132,30 @@ The project includes these main scripts:
 
 ## Controls
 
-- **VR Controller**: Point and trigger to select tables
-- **Keyboard (Development)**:
+### Menu Navigation
+- **VR Controllers (Joystick Mode)**:
+  - **Left Trigger** (Button 14) - Previous table
+  - **Right Trigger** (Button 15) - Next table
+  - **Right A Button** (Button 0) - Launch table
+- **Keyboard**:
+  - Left/Right Shift or Arrow Keys - Browse tables
+  - Enter/Space - Launch table
   - ESC - Quit application
-  - Use mouse to click in VR menu
+
+### In-Game Controls (While Table is Running)
+
+VR controller buttons are automatically converted to keyboard inputs for VPinballX using the Windows SendInput API. This works because VR controllers use OpenXR/SteamVR APIs that VPinballX can't directly access, so we simulate the keyboard presses that VPinballX expects.
+
+**VR Controller Mappings** (automatically converted to keyboard):
+
+- **Left Trigger** → Left Flipper (simulates Left Shift key)
+- **Right Trigger** → Right Flipper (simulates Right Shift key)
+- **Right Grip** → Launch Ball/Plunger (simulates Space key)
+- **Left Primary Button (X/A)** → Nudge Forward (simulates Up Arrow)
+- **Left Joystick** → Nudge Left/Right/Back (simulates Arrow Keys)
+- **Right Secondary Button (B/A)** → Exit Table (simulates Escape key)
+
+**Note**: Controller input is only active while a table is running and automatically disabled in the menu. The menu uses native joystick detection (Unity's OpenXR support), while in-game uses keyboard simulation (VPinballX compatibility).
 
 ## Troubleshooting
 
@@ -175,6 +197,23 @@ The project includes these main scripts:
 - Check Unity console for process exit errors
 - Verify the table process actually exited
 - Try relaunching the application
+
+### Controller Input Not Working in VPinballX
+
+**Understanding the Input System**:
+- Menu navigation uses native joystick detection (Unity/OpenXR)
+- In-game controls use keyboard simulation (VPinballX compatibility)
+- VR controllers don't appear in Windows joy.cpl (this is normal)
+- VPinballX can't see VR controllers as joysticks (uses DirectInput API)
+
+**Troubleshooting Steps**:
+- Ensure a table is running (controller input only works during gameplay)
+- Check that VPinballX window has focus (automatic after v1.1.0)
+- Verify controllers are tracked in SteamVR
+- Enable debug logging in VRControllerInput component to see input events
+- Check VPinballX key bindings match the default mappings (Shift for flippers, etc.)
+- Some tables may use custom key bindings - check table documentation
+- See TEST_KEYBOARD_SIMULATION.md for detailed testing guide
 
 ## Development
 

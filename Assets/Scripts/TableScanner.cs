@@ -172,8 +172,9 @@ namespace VRLauncher
             LauncherConfig config = LauncherConfig.Instance;
             tablesDirectory = config.tablesDirectory;
             searchSubdirectories = config.searchSubdirectories;
+            wheelDirectory = config.wheelDirectory;
 
-            Debug.Log($"TableScanner.Awake: Loaded config - tablesDirectory={tablesDirectory}, searchSubdirs={searchSubdirectories}");
+            Debug.Log($"TableScanner.Awake: Loaded config - tablesDirectory={tablesDirectory}, searchSubdirs={searchSubdirectories}, wheelDirectory={wheelDirectory}");
         }
 
         void Start()

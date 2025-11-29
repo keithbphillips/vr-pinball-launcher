@@ -1,7 +1,8 @@
 {
   "vpinballExecutable": "C:\\Visual Pinball\\VPinballX_GL64.exe",
-  "tablesDirectory": "C:\\Visual Pinball\\Tables",
+  "tablesDirectory": "C:\\Visual Pinball\\Tablesvr",
   "searchSubdirectories": true,
+  "wheelDirectory": "C:\\Visual Pinball\\Media\\Wheel",
   "menuDistance": 2.0,
   "menuHeight": 1.5,
   "menuScale": 0.01,
