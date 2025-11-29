@@ -91,6 +91,7 @@ namespace VRLauncher
                     string json = File.ReadAllText(configPath);
                     LauncherConfig config = JsonUtility.FromJson<LauncherConfig>(json);
                     Debug.Log($"Loaded configuration from: {configPath}");
+                    Debug.Log($"Config values - tablesDirectory: {config.tablesDirectory}, vpinballExecutable: {config.vpinballExecutable}");
                     return config;
                 }
                 catch (Exception ex)

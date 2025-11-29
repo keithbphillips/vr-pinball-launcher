@@ -166,8 +166,19 @@ namespace VRLauncher
             Debug.Log($"Matched {matchedCount} wheel images to tables");
         }
 
+        void Awake()
+        {
+            // Load configuration first thing
+            LauncherConfig config = LauncherConfig.Instance;
+            tablesDirectory = config.tablesDirectory;
+            searchSubdirectories = config.searchSubdirectories;
+
+            Debug.Log($"TableScanner.Awake: Loaded config - tablesDirectory={tablesDirectory}, searchSubdirs={searchSubdirectories}");
+        }
+
         void Start()
         {
+            Debug.Log($"TableScanner.Start: Scanning for tables in {tablesDirectory}");
             // Scan on startup
             ScanForTables();
         }

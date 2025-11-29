@@ -161,6 +161,12 @@ namespace VRLauncher
         void Awake()
         {
             keyboard = Keyboard.current;
+
+            // Load configuration
+            LauncherConfig config = LauncherConfig.Instance;
+            vpinballExecutable = config.vpinballExecutable;
+
+            UnityEngine.Debug.Log($"TableLauncher configured to use VPinballX at: {vpinballExecutable}");
         }
 
         void Update()
