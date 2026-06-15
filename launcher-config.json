@@ -6,5 +6,5 @@
   "menuDistance": 2.0,
   "menuHeight": 1.5,
   "menuScale": 0.01,
-  "showDebugConsole": true
+  "showDebugConsole": false
 }

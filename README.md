@@ -55,7 +55,7 @@ Edit `launcher-config.json` in the same folder as the executable:
   "menuDistance": 2.0,
   "menuHeight": 1.5,
   "menuScale": 0.01,
-  "showDebugConsole": true
+  "showDebugConsole": false
 }
 ```
 
@@ -68,7 +68,7 @@ Edit `launcher-config.json` in the same folder as the executable:
 - **menuDistance**: Distance (in meters) to position menu from camera
 - **menuHeight**: Height offset (in meters) for menu positioning
 - **menuScale**: Scale factor for the menu UI
-- **showDebugConsole**: Show Unity debug console (useful for troubleshooting)
+- **showDebugConsole**: Show on-screen VR controller/button debug overlays (useful for troubleshooting). Defaults to `false`.
 
 ## Setup in Unity
 

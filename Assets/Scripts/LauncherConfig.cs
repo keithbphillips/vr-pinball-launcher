@@ -36,7 +36,7 @@ namespace VRLauncher
 
         [Header("Application Settings")]
         [Tooltip("Show debug console window")]
-        public bool showDebugConsole = true;
+        public bool showDebugConsole = false;
 
         private static LauncherConfig _instance;
         private static readonly string ConfigFileName = "launcher-config.json";
