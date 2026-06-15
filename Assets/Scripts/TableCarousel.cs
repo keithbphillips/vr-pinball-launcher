@@ -38,18 +38,18 @@ namespace VRLauncher
         private bool leftWasPressed = false;
         private bool rightWasPressed = false;
 
-        // VR controller (XR Input System) state tracking
-        // Legacy Input.GetKey(JoystickButtonXX) does not reliably report release
-        // for OpenXR controllers, so triggers are read as analog feature values
-        // with separate press/release thresholds (hysteresis) for clean edges.
-        private XRInputDevice leftXRController;
+        // VR controller (XR Input System) state tracking.
+        // The right thumbstick drives navigation (right = next, left = previous)
+        // so the carousel can be used one-handed. Legacy Input.GetKey does not
+        // reliably report release for OpenXR controllers, so input is read as XR
+        // feature values with separate engage/release thresholds (hysteresis) for
+        // clean edges - one stick push or button press registers exactly once.
         private XRInputDevice rightXRController;
-        private bool xrLeftTriggerWasPressed = false;   // Left Trigger - Previous
-        private bool xrRightTriggerWasPressed = false;  // Right Trigger - Next
-        private bool xrLaunchWasPressed = false;         // Primary button (A) - Launch
+        private bool xrThumbstickWasEngaged = false;  // Right thumbstick - Next/Previous
+        private bool xrLaunchWasPressed = false;       // Primary button (A) - Launch
 
-        private const float TriggerPressThreshold = 0.7f;
-        private const float TriggerReleaseThreshold = 0.4f;
+        private const float ThumbstickEngageThreshold = 0.7f;
+        private const float ThumbstickReleaseThreshold = 0.4f;
 
         [Header("UI References")]
         [Tooltip("Image to display the current table icon")]
@@ -127,7 +127,7 @@ namespace VRLauncher
             // Set controls text
             if (controlsText != null)
             {
-                controlsText.text = "VR: Triggers to browse, A to launch | KB: Shift/Arrows to browse, Enter/Space to launch";
+                controlsText.text = "Right Thumbstick Left/Right : A to Launch";
             }
         }
 
@@ -290,7 +290,7 @@ namespace VRLauncher
                 spaceWasPressed = false;
             }
 
-            // VR controller triggers / buttons (XR Input System)
+            // VR controller thumbstick / buttons (XR Input System)
             HandleVRControllerInput();
 
             // Visual feedback - flash background when keys pressed
@@ -303,23 +303,46 @@ namespace VRLauncher
         }
 
         /// <summary>
-        /// Reads VR controller triggers/buttons via the XR Input System.
-        /// Triggers use hysteresis (press above TriggerPressThreshold, release
-        /// below TriggerReleaseThreshold) so each squeeze advances exactly once.
+        /// Reads the right VR controller via the XR Input System. The thumbstick
+        /// navigates the carousel (right = next, left = previous) and the primary
+        /// button (A) launches. Inputs use hysteresis (engage above the engage
+        /// threshold, re-arm only after returning below the release threshold) so a
+        /// single push or press registers exactly once. Only the right controller
+        /// is used, so the launcher is fully one-handed.
         /// </summary>
         void HandleVRControllerInput()
         {
             EnsureXRControllers();
 
-            // Right trigger - Next Table
-            UpdateTriggerNav(rightXRController, ref xrRightTriggerWasPressed, NextTable);
+            if (!rightXRController.isValid)
+            {
+                return;
+            }
 
-            // Left trigger - Previous Table
-            UpdateTriggerNav(leftXRController, ref xrLeftTriggerWasPressed, PreviousTable);
+            // Right thumbstick - right = Next Table, left = Previous Table
+            if (rightXRController.TryGetFeatureValue(XRCommonUsages.primary2DAxis, out Vector2 thumbstick))
+            {
+                if (!xrThumbstickWasEngaged)
+                {
+                    if (thumbstick.x > ThumbstickEngageThreshold)
+                    {
+                        xrThumbstickWasEngaged = true;
+                        NextTable();
+                    }
+                    else if (thumbstick.x < -ThumbstickEngageThreshold)
+                    {
+                        xrThumbstickWasEngaged = true;
+                        PreviousTable();
+                    }
+                }
+                else if (Mathf.Abs(thumbstick.x) < ThumbstickReleaseThreshold)
+                {
+                    xrThumbstickWasEngaged = false;
+                }
+            }
 
             // Primary button (A) - Launch Table
-            if (rightXRController.isValid &&
-                rightXRController.TryGetFeatureValue(XRCommonUsages.primaryButton, out bool launchPressed))
+            if (rightXRController.TryGetFeatureValue(XRCommonUsages.primaryButton, out bool launchPressed))
             {
                 if (launchPressed && !xrLaunchWasPressed)
                 {
@@ -334,48 +357,11 @@ namespace VRLauncher
         }
 
         /// <summary>
-        /// Fires the given navigation action once per trigger squeeze, requiring
-        /// the analog trigger to drop below the release threshold before re-firing.
-        /// </summary>
-        void UpdateTriggerNav(XRInputDevice device, ref bool wasPressed, System.Action navAction)
-        {
-            if (!device.isValid)
-            {
-                return;
-            }
-
-            if (!device.TryGetFeatureValue(XRCommonUsages.trigger, out float triggerValue))
-            {
-                return;
-            }
-
-            if (!wasPressed && triggerValue > TriggerPressThreshold)
-            {
-                wasPressed = true;
-                navAction();
-            }
-            else if (wasPressed && triggerValue < TriggerReleaseThreshold)
-            {
-                wasPressed = false;
-            }
-        }
-
-        /// <summary>
-        /// (Re)acquires the left/right XR controllers if they aren't currently valid.
-        /// Controllers can connect after Start or drop out and reconnect.
+        /// (Re)acquires the right XR controller if it isn't currently valid.
+        /// The controller can connect after Start or drop out and reconnect.
         /// </summary>
         void EnsureXRControllers()
         {
-            if (!leftXRController.isValid)
-            {
-                var devices = new List<XRInputDevice>();
-                InputDevices.GetDevicesAtXRNode(XRNode.LeftHand, devices);
-                if (devices.Count > 0)
-                {
-                    leftXRController = devices[0];
-                }
-            }
-
             if (!rightXRController.isValid)
             {
                 var devices = new List<XRInputDevice>();
