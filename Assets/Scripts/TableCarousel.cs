@@ -4,7 +4,10 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
+using UnityEngine.XR;
 using TMPro;
+using XRInputDevice = UnityEngine.XR.InputDevice;
+using XRCommonUsages = UnityEngine.XR.CommonUsages;
 
 namespace VRLauncher
 {
@@ -34,6 +37,19 @@ namespace VRLauncher
         private bool escapeWasPressed = false;
         private bool leftWasPressed = false;
         private bool rightWasPressed = false;
+
+        // VR controller (XR Input System) state tracking
+        // Legacy Input.GetKey(JoystickButtonXX) does not reliably report release
+        // for OpenXR controllers, so triggers are read as analog feature values
+        // with separate press/release thresholds (hysteresis) for clean edges.
+        private XRInputDevice leftXRController;
+        private XRInputDevice rightXRController;
+        private bool xrLeftTriggerWasPressed = false;   // Left Trigger - Previous
+        private bool xrRightTriggerWasPressed = false;  // Right Trigger - Next
+        private bool xrLaunchWasPressed = false;         // Primary button (A) - Launch
+
+        private const float TriggerPressThreshold = 0.7f;
+        private const float TriggerReleaseThreshold = 0.4f;
 
         [Header("UI References")]
         [Tooltip("Image to display the current table icon")]
@@ -88,6 +104,14 @@ namespace VRLauncher
                 tableLauncher = gameObject.AddComponent<TableLauncher>();
             }
 
+            // Add VR controller input component
+            var vrControllerInput = FindFirstObjectByType<VRControllerInput>();
+            if (vrControllerInput == null)
+            {
+                vrControllerInput = gameObject.AddComponent<VRControllerInput>();
+                UnityEngine.Debug.Log("VRControllerInput component added for VR controller support");
+            }
+
             // Subscribe to table exit event
             tableLauncher.OnTableExited += OnTableExited;
 
@@ -103,7 +127,7 @@ namespace VRLauncher
             // Set controls text
             if (controlsText != null)
             {
-                controlsText.text = "← → Shift or Arrow Keys to browse | Enter/Space to launch";
+                controlsText.text = "VR: Triggers to browse, A to launch | KB: Shift/Arrows to browse, Enter/Space to launch";
             }
         }
 
@@ -188,6 +212,12 @@ namespace VRLauncher
                 return;
             }
 
+            // Don't handle input if a table is running - let VRControllerInput handle it
+            if (tableLauncher != null && tableLauncher.IsTableRunning())
+            {
+                return;
+            }
+
             // Left Shift - Previous Table
             bool leftShiftPressed = (GetAsyncKeyState(VK_LSHIFT) & 0x8000) != 0;
             if (leftShiftPressed && !leftShiftWasPressed)
@@ -260,12 +290,100 @@ namespace VRLauncher
                 spaceWasPressed = false;
             }
 
+            // VR controller triggers / buttons (XR Input System)
+            HandleVRControllerInput();
+
             // Visual feedback - flash background when keys pressed
             if (tableIcon != null)
             {
                 // Fade flash color back to white
                 flashColor = Color.Lerp(flashColor, Color.white, Time.deltaTime * 5f);
                 tableIcon.color = flashColor;
+            }
+        }
+
+        /// <summary>
+        /// Reads VR controller triggers/buttons via the XR Input System.
+        /// Triggers use hysteresis (press above TriggerPressThreshold, release
+        /// below TriggerReleaseThreshold) so each squeeze advances exactly once.
+        /// </summary>
+        void HandleVRControllerInput()
+        {
+            EnsureXRControllers();
+
+            // Right trigger - Next Table
+            UpdateTriggerNav(rightXRController, ref xrRightTriggerWasPressed, NextTable);
+
+            // Left trigger - Previous Table
+            UpdateTriggerNav(leftXRController, ref xrLeftTriggerWasPressed, PreviousTable);
+
+            // Primary button (A) - Launch Table
+            if (rightXRController.isValid &&
+                rightXRController.TryGetFeatureValue(XRCommonUsages.primaryButton, out bool launchPressed))
+            {
+                if (launchPressed && !xrLaunchWasPressed)
+                {
+                    xrLaunchWasPressed = true;
+                    LaunchCurrentTable();
+                }
+                else if (!launchPressed)
+                {
+                    xrLaunchWasPressed = false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Fires the given navigation action once per trigger squeeze, requiring
+        /// the analog trigger to drop below the release threshold before re-firing.
+        /// </summary>
+        void UpdateTriggerNav(XRInputDevice device, ref bool wasPressed, System.Action navAction)
+        {
+            if (!device.isValid)
+            {
+                return;
+            }
+
+            if (!device.TryGetFeatureValue(XRCommonUsages.trigger, out float triggerValue))
+            {
+                return;
+            }
+
+            if (!wasPressed && triggerValue > TriggerPressThreshold)
+            {
+                wasPressed = true;
+                navAction();
+            }
+            else if (wasPressed && triggerValue < TriggerReleaseThreshold)
+            {
+                wasPressed = false;
+            }
+        }
+
+        /// <summary>
+        /// (Re)acquires the left/right XR controllers if they aren't currently valid.
+        /// Controllers can connect after Start or drop out and reconnect.
+        /// </summary>
+        void EnsureXRControllers()
+        {
+            if (!leftXRController.isValid)
+            {
+                var devices = new List<XRInputDevice>();
+                InputDevices.GetDevicesAtXRNode(XRNode.LeftHand, devices);
+                if (devices.Count > 0)
+                {
+                    leftXRController = devices[0];
+                }
+            }
+
+            if (!rightXRController.isValid)
+            {
+                var devices = new List<XRInputDevice>();
+                InputDevices.GetDevicesAtXRNode(XRNode.RightHand, devices);
+                if (devices.Count > 0)
+                {
+                    rightXRController = devices[0];
+                }
             }
         }
 
