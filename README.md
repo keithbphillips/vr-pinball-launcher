@@ -55,7 +55,11 @@ Edit `launcher-config.json` in the same folder as the executable:
   "menuDistance": 2.0,
   "menuHeight": 1.5,
   "menuScale": 0.01,
-  "showDebugConsole": false
+  "showDebugConsole": false,
+  "enableControllerBridge": false,
+  "controllerBridgePath": "",
+  "controllerBridgeArgs": "",
+  "controllerBridgeWorkingDir": ""
 }
 ```
 
@@ -69,6 +73,10 @@ Edit `launcher-config.json` in the same folder as the executable:
 - **menuHeight**: Height offset (in meters) for menu positioning
 - **menuScale**: Scale factor for the menu UI
 - **showDebugConsole**: Show on-screen VR controller/button debug overlays (useful for troubleshooting). Defaults to `false`.
+- **enableControllerBridge**: Launch an external VR-controller input bridge when the launcher starts and stop it when the launcher exits. See [In-Game Controls](#in-game-controls-while-a-table-is-running). Defaults to `false`.
+- **controllerBridgePath**: Full path to the bridge executable to launch (e.g. the AutoHotkey executable, or a compiled bridge). Leave empty to disable.
+- **controllerBridgeArgs**: Command-line arguments for the bridge (e.g. the quoted full path to the AutoHotkey script).
+- **controllerBridgeWorkingDir**: Working directory for the bridge process. Leave empty to use the executable's folder. For the AutoHotkey script, set this to the folder containing `auto_oculus_touch.dll` so the script can load it.
 
 ## Setup in Unity
 
@@ -132,30 +140,38 @@ The project includes these main scripts:
 
 ## Controls
 
-### Menu Navigation
-- **VR Controllers (Joystick Mode)**:
-  - **Left Trigger** (Button 14) - Previous table
-  - **Right Trigger** (Button 15) - Next table
-  - **Right A Button** (Button 0) - Launch table
+### Menu Navigation (Carousel)
+
+- **VR Controllers**:
+  - **Left Trigger** — Previous table
+  - **Right Trigger** — Next table
+  - **A Button** (right controller) — Launch selected table
 - **Keyboard**:
-  - Left/Right Shift or Arrow Keys - Browse tables
-  - Enter/Space - Launch table
-  - ESC - Quit application
+  - Left/Right Shift or Left/Right Arrow — Browse tables
+  - Enter/Space — Launch table
+  - Esc — Quit application
 
-### In-Game Controls (While Table is Running)
+Menu input is read through the XR Input System (OpenXR), so it works reliably with Quest/Touch and other OpenXR controllers.
 
-VR controller buttons are automatically converted to keyboard inputs for VPinballX using the Windows SendInput API. This works because VR controllers use OpenXR/SteamVR APIs that VPinballX can't directly access, so we simulate the keyboard presses that VPinballX expects.
+### In-Game Controls (While a Table is Running)
 
-**VR Controller Mappings** (automatically converted to keyboard):
+Visual Pinball's VR build reads keyboard and DirectInput, **not** VR motion controllers, and Unity has released its XR session to VPinballX while a table is running. So in-game controls are provided by an **external controller bridge** that reads the VR controllers and sends the keystrokes VPinballX expects. The launcher starts this bridge on startup and stops it on exit, controlled by the `enableControllerBridge` configuration options above.
 
-- **Left Trigger** → Left Flipper (simulates Left Shift key)
-- **Right Trigger** → Right Flipper (simulates Right Shift key)
-- **Right Grip** → Launch Ball/Plunger (simulates Space key)
-- **Left Primary Button (X/A)** → Nudge Forward (simulates Up Arrow)
-- **Left Joystick** → Nudge Left/Right/Back (simulates Arrow Keys)
-- **Right Secondary Button (B/A)** → Exit Table (simulates Escape key)
+The reference bridge ([`auto_oculus_touch`](https://github.com/rajetic/auto_oculus_touch/) driving an AutoHotkey script) uses these mappings, which match VPinballX's default keys:
 
-**Note**: Controller input is only active while a table is running and automatically disabled in the menu. The menu uses native joystick detection (Unity's OpenXR support), while in-game uses keyboard simulation (VPinballX compatibility).
+| Control | Action | Key sent |
+|---|---|---|
+| **Left Trigger** | Left flipper | Left Shift |
+| **Right Trigger** | Right flipper | Right Shift |
+| **X Button** (left) | Start game | `1` |
+| **B Button** (right) | Insert coin | `5` |
+| **Y Button** (left) | Exit table | `Esc` |
+| **Right Thumbstick** (pull back) | Plunger | Enter |
+
+**Notes**:
+- The bridge only sends keys while the **VPinballX window is focused**. This is why the triggers act as carousel navigation in the menu and as flippers in-game — there's no conflict.
+- Mappings assume VPinballX's default key bindings. If yours differ, check **VPX > Preferences > Configure Keys** and adjust the bridge script accordingly.
+- The bridge cannot run inside Unity (Unity hands its XR session to VPinballX during play); it must be a separate process, which is why the launcher spawns/kills it.
 
 ## Troubleshooting
 
@@ -201,19 +217,17 @@ VR controller buttons are automatically converted to keyboard inputs for VPinbal
 ### Controller Input Not Working in VPinballX
 
 **Understanding the Input System**:
-- Menu navigation uses native joystick detection (Unity/OpenXR)
-- In-game controls use keyboard simulation (VPinballX compatibility)
-- VR controllers don't appear in Windows joy.cpl (this is normal)
-- VPinballX can't see VR controllers as joysticks (uses DirectInput API)
+- Menu navigation reads the controllers directly via the XR Input System (OpenXR)
+- In-game controls are provided by the external controller bridge (see [In-Game Controls](#in-game-controls-while-a-table-is-running)), which simulates keyboard input
+- VR controllers don't appear in Windows joy.cpl and VPinballX can't read them as joysticks (this is normal — hence the bridge)
 
 **Troubleshooting Steps**:
-- Ensure a table is running (controller input only works during gameplay)
-- Check that VPinballX window has focus (automatic after v1.1.0)
-- Verify controllers are tracked in SteamVR
-- Enable debug logging in VRControllerInput component to see input events
-- Check VPinballX key bindings match the default mappings (Shift for flippers, etc.)
-- Some tables may use custom key bindings - check table documentation
-- See TEST_KEYBOARD_SIMULATION.md for detailed testing guide
+- Confirm the bridge is enabled and configured (`enableControllerBridge`, `controllerBridgePath`, `controllerBridgeArgs`, `controllerBridgeWorkingDir`) and that it actually launched with the app
+- The bridge only sends keys while the **VPinballX window is focused** — make sure no other window (terminal, launcher menu, etc.) has stolen focus
+- Verify your VPinballX key bindings match the bridge mappings (Shift for flippers, `1` = start, `5` = coin, Enter = plunger) under **VPX > Preferences > Configure Keys**
+- Some tables require inserting a coin (B) before Start (X) does anything
+- Confirm the VR runtime is running (e.g. Quest Link/Air Link) so the bridge can read the controllers
+- Temporarily set `showDebugConsole` to `true` to see the `ControllerBridge: started …` log line and confirm the bridge launched
 
 ## Development
 

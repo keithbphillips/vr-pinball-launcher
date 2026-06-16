@@ -38,6 +38,19 @@ namespace VRLauncher
         [Tooltip("Show debug console window")]
         public bool showDebugConsole = false;
 
+        [Header("VR Controller Bridge")]
+        [Tooltip("Launch an external controller bridge process when the launcher starts, and kill it when the launcher exits")]
+        public bool enableControllerBridge = false;
+
+        [Tooltip("Path to the controller bridge executable to launch (e.g. AutoHotkey exe, or a compiled bridge). Leave empty to disable.")]
+        public string controllerBridgePath = "";
+
+        [Tooltip("Command-line arguments for the bridge (e.g. the full path to the .ahk script, quoted)")]
+        public string controllerBridgeArgs = "";
+
+        [Tooltip("Working directory for the bridge process. Leave empty to use the executable's folder. For the AutoHotkey script, set this to the folder containing auto_oculus_touch.dll.")]
+        public string controllerBridgeWorkingDir = "";
+
         private static LauncherConfig _instance;
         private static readonly string ConfigFileName = "launcher-config.json";
 
