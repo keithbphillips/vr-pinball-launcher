@@ -157,7 +157,9 @@ Menu input is read through the XR Input System (OpenXR), so it works reliably wi
 
 Visual Pinball's VR build reads keyboard and DirectInput, **not** VR motion controllers, and Unity has released its XR session to VPinballX while a table is running. So in-game controls are provided by an **external controller bridge** that reads the VR controllers and sends the keystrokes VPinballX expects. The launcher starts this bridge on startup and stops it on exit, controlled by the `enableControllerBridge` configuration options above.
 
-The reference bridge ([`auto_oculus_touch`](https://github.com/rajetic/auto_oculus_touch/) driving an AutoHotkey script) uses these mappings, which match VPinballX's default keys:
+A ready-to-use bridge is bundled in the [`ControllerBridge/`](ControllerBridge/) folder. **Setup is one step:** make sure that folder sits next to `vr-launch.exe`, then right-click `ControllerBridge/install.ps1` → **Run with PowerShell**. It installs AutoHotkey 1.1 if needed and wires the bridge into your config automatically (no vJoy, no kernel driver, no security changes). See [`ControllerBridge/README.md`](ControllerBridge/README.md) for details.
+
+The bundled bridge ([`auto_oculus_touch`](https://github.com/rajetic/auto_oculus_touch/) driving an AutoHotkey script) uses these mappings, which match VPinballX's default keys:
 
 | Control | Action | Key sent |
 |---|---|---|
