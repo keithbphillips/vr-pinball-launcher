@@ -89,15 +89,18 @@ HID_USAGE_SL1 := 0x37
 HID_USAGE_WHL := 0x38
 HID_USAGE_POV := 0x39
 
-; Grab the library. 
-AOTModule := DllCall("LoadLibrary", "Str", "auto_oculus_touch.dll", "Ptr")
+; Grab the library. Load it from the script's own folder so it works regardless
+; of the process working directory, then fall back to the normal search path.
+AOTModule := DllCall("LoadLibrary", "Str", A_ScriptDir . "\auto_oculus_touch.dll", "Ptr")
+if AOTModule=0
+	AOTModule := DllCall("LoadLibrary", "Str", "auto_oculus_touch.dll", "Ptr")
 if AOTModule!=0
 {
-	
+
 }
 else
 {
-	MsgBox, The auto_oculus_touch.dll file is missing from the search path.
+	MsgBox, The auto_oculus_touch.dll file is missing (looked in %A_ScriptDir%).
 	ExitApp
 }
 

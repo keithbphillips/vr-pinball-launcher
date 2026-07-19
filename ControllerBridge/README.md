@@ -17,18 +17,45 @@ kills it on exit (see `enableControllerBridge` in `launcher-config.json`).
 |------|---------|
 | `vpx_vr_controls.ahk` | The control mapping (this project) |
 | `auto_oculus_touch.ahk` / `auto_oculus_touch.dll` | Reads the Quest/Touch controllers via the Oculus runtime — by Kojack (rajetic), MIT (see `auto_oculus_touch_README.txt`) |
-| `install.ps1` | One-step setup |
+| `vJoyInterface.dll` | **Required.** `auto_oculus_touch.dll` is built with vJoy support, so it has a load-time dependency on this file even though we don't use vJoy. It must sit beside `auto_oculus_touch.dll` or the DLL won't load ("auto_oculus_touch.dll file is missing"). The vJoy *driver* itself is **not** required. |
+
+Setup for both VPinballX (VR) **and** this controller bridge is handled by
+**`install.ps1`**, which lives in the launcher root folder (next to `vr-launch.exe`),
+one level up from here.
 
 ## Install
 
-1. Make sure this `ControllerBridge` folder sits **next to `vr-launch.exe`**.
-2. Right-click **`install.ps1`** → **Run with PowerShell** (or
-   `powershell -ExecutionPolicy Bypass -File install.ps1`).
+1. Make sure this `ControllerBridge` folder sits **next to `vr-launch.exe`** (and
+   therefore next to `install.ps1`).
+2. Right-click **`install.ps1`** (in the launcher root folder) → **Run with PowerShell**
+   (or `powershell -ExecutionPolicy Bypass -File install.ps1`).
 
-The installer makes sure **AutoHotkey 1.1** is present (downloading the official
-installer if needed) and writes the bridge settings into `launcher-config.json`
-so the launcher manages it automatically. No vJoy, no kernel driver, and no
-Windows security changes required.
+`install.ps1` opens a menu:
+
+| Option | What it does |
+|---|---|
+| **1. VPinballX (VR)** | Uses an existing `VPinballX_GL64.exe` if found; otherwise offers to download the latest VR-capable Windows build (`VPinballX_GL`, x64) from the [vpinball releases](https://github.com/vpinball/vpinball/releases). It then enables VR (`[PlayerVR] AskToTurnOn=0` in `VPinballX.ini`) and points `launcher-config.json` at the exe and your tables folder. |
+| **2. Controller bridge** | Ensures **AutoHotkey 1.1** is present (downloading the official installer if needed) and writes the bridge settings into `launcher-config.json` so the launcher manages it automatically. |
+| **3. Both** | Runs both of the above (recommended). |
+
+No vJoy, no kernel driver, and no Windows security changes required.
+
+### Non-interactive use
+
+```powershell
+# everything, no prompts where avoidable
+powershell -ExecutionPolicy Bypass -File install.ps1 -Setup both
+
+# only VPinballX VR, into an existing/target folder, with a specific tables dir
+powershell -ExecutionPolicy Bypass -File install.ps1 -Setup vpx -VpxDir "C:\Visual Pinball" -TablesDir "C:\Visual Pinball\Tablesvr"
+
+# only the controller bridge
+powershell -ExecutionPolicy Bypass -File install.ps1 -Setup bridge
+```
+
+VR requires a **SteamVR-compatible runtime** running before you launch a table
+(Quest **Link / Air Link** + SteamVR). The first time VPinballX starts in VR it
+may still prompt 2D-vs-VR until a headset is detected.
 
 ## Controls (in-game)
 
