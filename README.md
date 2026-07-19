@@ -35,12 +35,39 @@ A Steam VR launcher for Visual Pinball tables that provides an immersive VR menu
 5. Open the main scene: `Assets/Scenes/VRLauncher.unity`
 6. Build the project: **File > Build Settings > Build**
 
-### Option 2: Use Pre-built Release
+### Option 2: Use the Installer (recommended)
 
-1. Download the latest release from the releases page
-2. Extract to a folder of your choice
-3. Edit `launcher-config.json` to set your paths
-4. Run `VRLauncher.exe`
+1. Download **`VRPinballLauncher-Setup.exe`** from the releases page.
+2. Run it. The wizard lets you choose the install location (per-user, no admin, or
+   all-users in Program Files), creates Start Menu / Desktop shortcuts, and offers
+   optional checkboxes to **set up VPinballX for VR** (downloads the VR build if you
+   don't have it), **set up VPinMAME** (the ROM emulator most tables need — this
+   registers a COM DLL, so it triggers one admin prompt on a per-user install), and
+   the **controller bridge**.
+3. Launch from the Desktop / Start Menu shortcut. Uninstall any time from
+   **Settings → Apps** or the Start Menu.
+
+When the VPinballX VR step runs, it also drops **"VR Pinball Tables"** and
+**"VR Pinball ROMs"** shortcuts on your Desktop (pointing at the configured tables
+folder and VPinMAME's ROM folder), so you can drag new `.vpx` tables and ROM `.zip`
+files straight in.
+
+The optional setup steps just run the bundled `install.ps1`; you can re-run it any
+time from the install folder to reconfigure, and you can still edit
+`launcher-config.json` by hand. See [In-Game Controls](#in-game-controls-while-a-table-is-running).
+
+#### Building the installer (maintainers)
+
+After building the Unity project to `Build/`, run `build-installer.ps1` (requires
+[Inno Setup 6](https://jrsoftware.org/isinfo.php)):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File build-installer.ps1 -Version 1.0.0
+```
+
+This compiles `installer/vr-pinball-launcher.iss` into
+`dist/VRPinballLauncher-Setup.exe`, bundling the build, `install.ps1`, and the
+`ControllerBridge` folder.
 
 ## Configuration
 
@@ -157,7 +184,12 @@ Menu input is read through the XR Input System (OpenXR), so it works reliably wi
 
 Visual Pinball's VR build reads keyboard and DirectInput, **not** VR motion controllers, and Unity has released its XR session to VPinballX while a table is running. So in-game controls are provided by an **external controller bridge** that reads the VR controllers and sends the keystrokes VPinballX expects. The launcher starts this bridge on startup and stops it on exit, controlled by the `enableControllerBridge` configuration options above.
 
-A ready-to-use bridge is bundled in the [`ControllerBridge/`](ControllerBridge/) folder. **Setup is one step:** make sure that folder sits next to `vr-launch.exe`, then right-click `ControllerBridge/install.ps1` → **Run with PowerShell**. It installs AutoHotkey 1.1 if needed and wires the bridge into your config automatically (no vJoy, no kernel driver, no security changes). See [`ControllerBridge/README.md`](ControllerBridge/README.md) for details.
+A ready-to-use bridge is bundled in the [`ControllerBridge/`](ControllerBridge/) folder and is set up for you if you tick **"Set up the VR controller bridge"** in the installer. To set it up later (or outside the installer), run `install.ps1` from the install folder — it shows a menu where you can choose **VPinballX (VR)**, **Controller bridge**, or **Both**:
+
+- **VPinballX (VR)** installs/VR-enables Visual Pinball X (downloading the latest VR-capable `VPinballX_GL` Windows build if you don't already have one), turns on VR in `VPinballX.ini`, and points `launcher-config.json` at the exe and your tables folder.
+- **Controller bridge** installs AutoHotkey 1.1 if needed and wires the bridge into your config automatically (no vJoy, no kernel driver, no security changes).
+
+See [`ControllerBridge/README.md`](ControllerBridge/README.md) for details and non-interactive flags.
 
 The bundled bridge ([`auto_oculus_touch`](https://github.com/rajetic/auto_oculus_touch/) driving an AutoHotkey script) uses these mappings, which match VPinballX's default keys:
 

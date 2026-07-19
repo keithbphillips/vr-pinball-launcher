@@ -21,6 +21,14 @@ sysinfo.txt
 *.app
 Build.zip
 
+# Installer output
+dist/
+*.exe.manifest
+
+# Runtime logs
+altsound.log
+bridge_debug.log
+
 # Visual Studio cache directory
 .vs/
 .vscode/
